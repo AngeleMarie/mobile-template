@@ -14,13 +14,13 @@ const CustomButton = ({
     <TouchableOpacity
       onPress={onPress}
       activeOpacity={0.8}
-      className={`flex-row items-center  justify-between text-center rounded-full py-2 px-8 ${containerStyle}`}
+      className={`flex flex-row items-center relative rounded-full p-2 ${containerStyle}`}
     >
-      <Text className={`font-semibold text-lg   ${textStyle}`}>
+      <Text className={`font-medium text-lg   ${textStyle}`}>
         {title}
       </Text>
 
-      <View className="ml-3 w-10 h-10 rounded-full bg-white items-center justify-center">
+      <View className="ml-3 w-10 h-10 rounded-full right-3 bg-white absolute items-center justify-center">
         {iconRight}
       </View>
     </TouchableOpacity>

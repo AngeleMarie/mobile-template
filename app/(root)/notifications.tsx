@@ -1,8 +1,10 @@
-import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
 import { Container } from '@/components/layout/Container';
 import Colors from '@/constants/Colors';
-import { Bell, Car, Clock, Wallet, TriangleAlert as AlertTriangle } from 'lucide-react-native';
+import Toast from 'react-native-toast-message';
+import { Bell, Clock, Wallet, TriangleAlert as AlertTriangle, ChevronLeft } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 
 interface Notification {
   id: string;
@@ -13,7 +15,7 @@ interface Notification {
   read: boolean;
 }
 
-const notifications: Notification[] = [
+const initialNotifications: Notification[] = [
   {
     id: '1',
     title: 'Parking session started',
@@ -38,57 +40,38 @@ const notifications: Notification[] = [
     type: 'payment',
     read: true,
   },
-  {
-    id: '4',
-    title: 'Booking reminder',
-    message: 'You have a parking reservation tomorrow at Westside Mall Parking.',
-    time: 'Yesterday',
-    type: 'reminder',
-    read: true,
-  },
-  {
-    id: '5',
-    title: 'New discount available',
-    message: 'Use code WEEKEND25 for 25% off parking this weekend.',
-    time: '2 days ago',
-    type: 'info',
-    read: true,
-  },
 ];
 
 export default function NotificationsScreen() {
+  const router = useRouter();
+  const [notifications, setNotifications] = useState(initialNotifications);
+  const [refreshing, setRefreshing] = useState(false);
+
   const getIconForType = (type: string) => {
     switch (type) {
-      case 'info':
-        return <Bell size={24} color={Colors.primary[500]} />;
-      case 'warning':
-        return <AlertTriangle size={24} color={Colors.warning[500]} />;
-      case 'payment':
-        return <Wallet size={24} color={Colors.secondary[500]} />;
-      case 'reminder':
-        return <Clock size={24} color={Colors.accent[500]} />;
-      default:
-        return <Bell size={24} color={Colors.primary[500]} />;
+      case 'info': return <Bell size={24} color={Colors.primary[500]} />;
+      case 'warning': return <AlertTriangle size={24} color={Colors.warning[500]} />;
+      case 'payment': return <Wallet size={24} color={Colors.secondary[500]} />;
+      case 'reminder': return <Clock size={24} color={Colors.accent[500]} />;
+      default: return <Bell size={24} color={Colors.primary[500]} />;
     }
   };
 
-  const getNotificationBackground = (read: boolean, type: string) => {
-    if (!read) {
-      return { backgroundColor: Colors.primary[50] };
-    }
-    return {};
+  const onRefresh = () => {
+    setRefreshing(true);
+    setTimeout(() => {
+      Toast.show({
+        type: 'success',
+        text1: 'Refreshed!',
+        text2: 'Notifications updated.',
+      });
+      setRefreshing(false);
+    }, 1500);
   };
 
   const renderNotification = ({ item }: { item: Notification }) => (
-    <TouchableOpacity 
-      style={[
-        styles.notificationItem,
-        getNotificationBackground(item.read, item.type)
-      ]}
-    >
-      <View style={styles.iconContainer}>
-        {getIconForType(item.type)}
-      </View>
+    <TouchableOpacity style={[styles.notificationItem, !item.read && { backgroundColor: Colors.primary[50] }]}>
+      <View style={styles.iconContainer}>{getIconForType(item.type)}</View>
       <View style={styles.notificationContent}>
         <Text style={styles.notificationTitle}>{item.title}</Text>
         <Text style={styles.notificationMessage}>{item.message}</Text>
@@ -101,8 +84,18 @@ export default function NotificationsScreen() {
   return (
     <Container style={styles.container}>
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <ChevronLeft size={24} color={Colors.text.primary} />
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>Notifications</Text>
-        <TouchableOpacity>
+        <TouchableOpacity onPress={() => {
+          const updated = notifications.map(n => ({ ...n, read: true }));
+          setNotifications(updated);
+          Toast.show({
+            type: 'info',
+            text1: 'All notifications marked as read',
+          });
+        }}>
           <Text style={styles.markAllRead}>Mark all as read</Text>
         </TouchableOpacity>
       </View>
@@ -113,6 +106,9 @@ export default function NotificationsScreen() {
         keyExtractor={item => item.id}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary[500]]} />
+        }
       />
     </Container>
   );
@@ -125,11 +121,10 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 16,
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border.light,
   },

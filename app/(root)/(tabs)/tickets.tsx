@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,10 @@ import {
   TouchableOpacity,
   Modal,
   Alert,
+  RefreshControl,
 } from 'react-native';
+import axios from 'axios';
+import Toast from 'react-native-toast-message';
 import { Container } from '@/components/layout/Container';
 import Colors from '@/constants/Colors';
 import {
@@ -22,67 +25,97 @@ import {
 } from 'lucide-react-native';
 import { Button } from '@/components/Button';
 import { LinearGradient } from 'expo-linear-gradient';
-// Import the Booking interface along with the component
 import { AddBookingModal, Booking } from '@/components/AddBookingModal';
 import { Swipeable } from 'react-native-gesture-handler';
 
-// Initial dummy data for tickets
-const initialTickets: Booking[] = [
-  {
-    id: '1',
-    parkingName: 'Central City Parking',
-    address: '123 Main St, Downtown',
-    date: 'Today',
-    startTime: '09:30 AM',
-    endTime: null,
-    price: '$2.50/hr',
-    status: 'active',
-    duration: '2h 15m',
-  },
-  {
-    id: '2',
-    parkingName: 'Westside Mall Parking',
-    address: '456 Market Ave, Westside',
-    date: 'Tomorrow',
-    startTime: '10:00 AM',
-    endTime: '12:00 PM',
-    price: '$6.00',
-    status: 'upcoming',
-  },
-  {
-    id: '3',
-    parkingName: 'Harbor View Parking',
-    address: '789 Ocean Blvd, Seaside',
-    date: 'Yesterday',
-    startTime: '02:00 PM',
-    endTime: '04:30 PM',
-    price: '$12.50',
-    status: 'completed',
-  },
-  {
-    id: '4',
-    parkingName: 'Riverside Park',
-    address: '789 River Road, North',
-    date: '2024-06-01',
-    startTime: '11:00 AM',
-    endTime: '01:00 PM',
-    price: '$4.00',
-    status: 'upcoming',
-  },
-];
+ // Base URL for the API (replace with your actual API URL)
+const API_BASE_URL = 'http:// 10.11.73.214:3001';
+
+// Initial dummy data for tickets (used as fallback)
+// const initialTickets: Booking[] = [
+//   {
+//     id: '1',
+//     parkingName: 'Central City Parking',
+//     address: '123 Main St, Downtown',
+//     date: '2025-05-26',
+//     startTime: '2025-05-26T09:30:00.000Z',
+//     endTime: null,
+//     price: '$2.50/hr',
+//     status: 'active',
+//     duration: '2h 15m',
+//   },
+//   {
+//     id: '2',
+//     parkingName: 'Westside Mall Parking',
+//     address: '456 Market Ave, Westside',
+//     date: '2025-05-27',
+//     startTime: '2025-05-27T10:00:00.000Z',
+//     endTime: '2025-05-27T12:00:00.000Z',
+//     price: '$6.00',
+//     status: 'upcoming',
+//   },
+// ];
 
 export default function TicketsScreen() {
-  const [tickets, setTickets] = useState<Booking[]>(initialTickets);
+  const [tickets, setTickets] = useState<Booking[]>([]);
   const [selectedTicket, setSelectedTicket] = useState<Booking | null>(null);
-
-  // Modals visibility states
   const [ticketDetailsModalVisible, setTicketDetailsModalVisible] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [checkoutModalVisible, setCheckoutModalVisible] = useState(false);
   const [billModalVisible, setBillModalVisible] = useState(false);
   const [addBookingModalVisible, setAddBookingModalVisible] = useState(false);
-
-  // Ref to close open swipeable rows
+  const [refreshing, setRefreshing] = useState(false);
   const swipeableRefs = useRef<{ [key: string]: Swipeable | null }>({});
+
+  // Fetch bookings from API
+   const fetchBookings = async () => {
+    try {
+      const response = await axios.get('http://10.11.73.214:3001/bookings');
+      const data: Booking[] = response.data.map((item: any) => ({
+        id: item.id,
+        parkingName: item.parkingName,
+        address: item.address,
+        date: item.date,
+        startTime: item.startTime,
+        endTime: item.endTime || null,
+        price: item.price,
+        status: item.status,
+        duration: item.duration,
+      }));
+      setTickets(data);
+    } catch (error: any) {
+      console.error('Error fetching bookings:', {
+        message: error.message,
+        code: error.code,
+        response: error.response?.data,
+      });
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to load bookings. Using local data.',
+      });
+      setTickets([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Pull-to-refresh handler
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchBookings();
+    setRefreshing(false);
+    Toast.show({
+      type: 'success',
+      text1: 'Refreshed',
+      text2: 'Bookings updated successfully.',
+    });
+  };
+
+  // Fetch bookings on component mount
+  useEffect(() => {
+    fetchBookings();
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -123,7 +156,6 @@ export default function TicketsScreen() {
     }
   };
 
-  // Close any open swipeable row when another is opened
   const closeOpenSwipeables = (excludedRowId: string) => {
     Object.keys(swipeableRefs.current).forEach((id) => {
       if (id !== excludedRowId && swipeableRefs.current[id]) {
@@ -135,7 +167,7 @@ export default function TicketsScreen() {
   // --- Ticket Management Functions ---
 
   const handleTicketPress = (ticket: Booking) => {
-    closeOpenSwipeables(ticket.id || ''); // Close any open swipeable
+    closeOpenSwipeables(ticket.id || '');
     setSelectedTicket(ticket);
     setTicketDetailsModalVisible(true);
   };
@@ -145,16 +177,43 @@ export default function TicketsScreen() {
     setCheckoutModalVisible(true);
   };
 
-  const confirmCheckout = () => {
-    if (selectedTicket) {
+  const confirmCheckout = async () => {
+    if (!selectedTicket?.id) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/bookings/${selectedTicket.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...selectedTicket,
+          status: 'completed',
+          endTime: new Date().toISOString(),
+          price: '$5.00',
+        }),
+      });
+      if (!response.ok) throw new Error('Failed to update booking');
+      const updatedBooking: Booking = await response.json();
       setTickets((prevTickets) =>
         prevTickets.map((t) =>
-          t.id === selectedTicket.id ? { ...t, status: 'completed', endTime: 'Now', price: '$5.00' } : t
+          t.id === selectedTicket.id ? updatedBooking : t
         )
       );
+      setCheckoutModalVisible(false);
+      setBillModalVisible(true);
+      Toast.show({
+        type: 'success',
+        text1: 'Checkout Complete',
+        text2: `Successfully checked out from ${selectedTicket.parkingName}.`,
+      });
+    } catch (error) {
+      console.error('Error checking out:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to complete checkout. Please try again.',
+      });
     }
-    setCheckoutModalVisible(false);
-    setBillModalVisible(true);
   };
 
   const closeAllModals = () => {
@@ -162,39 +221,74 @@ export default function TicketsScreen() {
     setCheckoutModalVisible(false);
     setBillModalVisible(false);
     setAddBookingModalVisible(false);
-    setSelectedTicket(null); // Clear selected ticket
+    setSelectedTicket(null);
   };
 
   // --- Add/Update Logic ---
-  const handleSaveBooking = (booking: Booking) => {
-    if (booking.id) {
-      // It's an update
-      setTickets((prev) =>
-        prev.map((t) => (t.id === booking.id ? booking : t))
-      );
-    } else {
-      // It's a new booking
-      const newId = Date.now().toString(); // Simple unique ID for demo
-      setTickets((prev) => [{ ...booking, id: newId }, ...prev]);
+  const handleSaveBooking = async (booking: Booking) => {
+    try {
+      if (booking.id) {
+        // Update existing booking
+        const response = await fetch(`${API_BASE_URL}/bookings/${booking.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(booking),
+        });
+        if (!response.ok) throw new Error('Failed to update booking');
+        const updatedBooking: Booking = await response.json();
+        setTickets((prev) =>
+          prev.map((t) => (t.id === updatedBooking.id ? updatedBooking : t))
+        );
+        Toast.show({
+          type: 'success',
+          text1: 'Booking Updated',
+          text2: `Successfully updated booking at ${booking.parkingName}.`,
+        });
+      } else {
+        // Create new booking
+        const response = await fetch(`${API_BASE_URL}/bookings`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(booking),
+        });
+        if (!response.ok) throw new Error('Failed to create booking');
+        const newBooking: Booking = await response.json();
+        setTickets((prev) => [newBooking, ...prev]);
+        Toast.show({
+          type: 'success',
+          text1: 'Booking Added',
+          text2: `Successfully added booking at ${booking.parkingName}.`,
+        });
+      }
+      closeAllModals();
+    } catch (error) {
+      console.error('Error saving booking:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: `Failed to ${booking.id ? 'update' : 'add'} booking. Please try again.`,
+      });
     }
-    closeAllModals();
   };
 
   const openAddBookingModal = () => {
-    setSelectedTicket(null); // Clear selected ticket for add mode
+    setSelectedTicket(null);
     setAddBookingModalVisible(true);
   };
 
   const openEditBookingModal = (ticket: Booking) => {
-    setSelectedTicket(ticket); // Set ticket for editing
+    setSelectedTicket(ticket);
     setAddBookingModalVisible(true);
-    closeOpenSwipeables(ticket.id || ''); // Close swipeable after action
+    closeOpenSwipeables(ticket.id || '');
   };
 
   // --- Delete Logic ---
-  const handleDeleteBooking = (ticketId: string) => {
-    closeOpenSwipeables(ticketId); // Close swipeable immediately
-
+  const handleDeleteBooking = async (ticketId: string) => {
+    closeOpenSwipeables(ticketId);
     Alert.alert(
       'Delete Booking',
       'Are you sure you want to delete this parking booking?',
@@ -202,17 +296,35 @@ export default function TicketsScreen() {
         {
           text: 'Cancel',
           style: 'cancel',
-          onPress: () => {
-            // No action needed for cancel, swipeable will remain open
-          }
         },
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => {
-            setTickets((prev) => prev.filter((t) => t.id !== ticketId));
-            setSelectedTicket(null); // Clear if deleted ticket was selected
-            closeAllModals(); // Ensure no modals related to this ticket are open
+          onPress: async () => {
+            try {
+              const response = await fetch(`${API_BASE_URL}/bookings/${ticketId}`, {
+                method: 'DELETE',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+              });
+              if (!response.ok) throw new Error('Failed to delete booking');
+              setTickets((prev) => prev.filter((t) => t.id !== ticketId));
+              setSelectedTicket(null);
+              closeAllModals();
+              Toast.show({
+                type: 'success',
+                text1: 'Booking Deleted',
+                text2: 'Booking successfully removed.',
+              });
+            } catch (error) {
+              console.error('Error deleting booking:', error);
+              Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: 'Failed to delete booking. Please try again.',
+              });
+            }
           },
         },
       ],
@@ -233,7 +345,7 @@ export default function TicketsScreen() {
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.swipeButton, styles.deleteButton]}
-          onPress={() => handleDeleteBooking(item.id || '')} // Ensure ID is passed
+          onPress={() => handleDeleteBooking(item.id || '')}
         >
           <Trash2 size={24} color="#FFF" />
           <Text style={styles.swipeButtonText}>Delete</Text>
@@ -244,7 +356,7 @@ export default function TicketsScreen() {
 
   const renderTicket = ({ item }: { item: Booking }) => (
     <Swipeable
-      ref={(ref) => (swipeableRefs.current[item.id || ''] = ref)} // Use item.id as key
+      ref={(ref) => (swipeableRefs.current[item.id || ''] = ref)}
       renderRightActions={(progress, dragX) => renderRightActions(progress, dragX, item)}
       onSwipeableWillOpen={() => closeOpenSwipeables(item.id || '')}
       rightThreshold={40}
@@ -281,13 +393,26 @@ export default function TicketsScreen() {
           <View style={styles.ticketDetails}>
             <View style={styles.detailItem}>
               <Text style={styles.detailLabel}>Date</Text>
-              <Text style={styles.detailValue}>{item.date}</Text>
+              <Text style={styles.detailValue}>
+                {new Date(item.date).toLocaleDateString('en-US')}
+              </Text>
             </View>
 
             <View style={styles.detailItem}>
               <Text style={styles.detailLabel}>Time</Text>
               <Text style={styles.detailValue}>
-                {item.startTime} {item.endTime ? `- ${item.endTime}` : ''}
+                {new Date(item.startTime).toLocaleTimeString('en-US', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  hour12: true,
+                })}
+                {item.endTime
+                  ? ` - ${new Date(item.endTime).toLocaleTimeString('en-US', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: true,
+                    })}`
+                  : ''}
               </Text>
             </View>
 
@@ -325,9 +450,16 @@ export default function TicketsScreen() {
       <FlatList
         data={tickets}
         renderItem={renderTicket}
-        keyExtractor={(item) => item.id || Math.random().toString()} // Fallback for key if ID is missing (shouldn't be in real app)
+        keyExtractor={(item) => item.id || Math.random().toString()}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[Colors.primary[500]]}
+          />
+        }
       />
 
       {/* Ticket Details Modal */}
@@ -393,21 +525,35 @@ export default function TicketsScreen() {
                 <View style={styles.ticketDetailsColumn}>
                   <Text style={styles.ticketDetailsLabel}>Date</Text>
                   <Text style={styles.ticketDetailsValue}>
-                    {selectedTicket?.date}
+                    {selectedTicket?.date
+                      ? new Date(selectedTicket.date).toLocaleDateString('en-US')
+                      : ''}
                   </Text>
                 </View>
 
                 <View style={styles.ticketDetailsColumn}>
                   <Text style={styles.ticketDetailsLabel}>Start Time</Text>
                   <Text style={styles.ticketDetailsValue}>
-                    {selectedTicket?.startTime}
+                    {selectedTicket?.startTime
+                      ? new Date(selectedTicket.startTime).toLocaleTimeString('en-US', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          hour12: true,
+                        })
+                      : ''}
                   </Text>
                 </View>
 
                 <View style={styles.ticketDetailsColumn}>
                   <Text style={styles.ticketDetailsLabel}>End Time</Text>
                   <Text style={styles.ticketDetailsValue}>
-                    {selectedTicket?.endTime || 'In progress'}
+                    {selectedTicket?.endTime
+                      ? new Date(selectedTicket.endTime).toLocaleTimeString('en-US', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          hour12: true,
+                        })
+                      : 'In progress'}
                   </Text>
                 </View>
               </View>
@@ -511,7 +657,11 @@ export default function TicketsScreen() {
 
               <View style={styles.billRow}>
                 <Text style={styles.billLabel}>Date</Text>
-                <Text style={styles.billValue}>{selectedTicket?.date}</Text>
+                <Text style={styles.billValue}>
+                  {selectedTicket?.date
+                    ? new Date(selectedTicket.date).toLocaleDateString('en-US')
+                    : ''}
+                </Text>
               </View>
 
               <View style={styles.billRow}>
@@ -552,8 +702,8 @@ export default function TicketsScreen() {
       <AddBookingModal
         isVisible={addBookingModalVisible}
         onClose={closeAllModals}
-        onSave={handleSaveBooking} // Consolidated save handler
-        initialBooking={selectedTicket} // Pass selectedTicket for editing
+        onSave={handleSaveBooking}
+        initialBooking={selectedTicket}
       />
     </Container>
   );
@@ -682,7 +832,6 @@ const styles = StyleSheet.create({
     color: Colors.primary[500],
     marginRight: 4,
   },
-  // Modals Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -909,31 +1058,30 @@ const styles = StyleSheet.create({
     marginTop: 10,
     width: '100%',
   },
-  // Swipeable actions
   swipeActionsContainer: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     alignItems: 'center',
-    paddingLeft: 20, // Adjust as needed
-    backgroundColor: Colors.neutral[100], // Background for swipe area
+    paddingLeft: 20,
+    backgroundColor: Colors.neutral[100],
     borderRadius: 16,
     marginBottom: 16,
-    overflow: 'hidden', // Ensure buttons don't bleed out
+    overflow: 'hidden',
   },
   swipeButton: {
     justifyContent: 'center',
     alignItems: 'center',
-    width: 80, // Width of each button
-    height: '100%', // Take full height of the row
+    width: 80,
+    height: '100%',
     paddingVertical: 10,
   },
   updateButton: {
-    backgroundColor: Colors.accent[500], // Example color for edit
+    backgroundColor: Colors.warning[500],
   },
   deleteButton: {
-    backgroundColor: Colors.primary[500], // Example color for delete
-    borderTopRightRadius: 16, // Match parent border radius
-    borderBottomRightRadius: 16, // Match parent border radius
+    backgroundColor: Colors.error[500],
+    borderTopRightRadius: 16,
+    borderBottomRightRadius: 16,
   },
   swipeButtonText: {
     color: '#FFF',

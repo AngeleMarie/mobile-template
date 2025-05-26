@@ -83,7 +83,7 @@ const Onboarding = () => {
             {lastIndex ? (
               
               <CustomButton
-                containerStyle="w-[50%] max-w-[260px] h-[48px] bg-primary justify-center pl-8 items-center"
+                containerStyle="w-[80%] max-w-[260px] h-[48px] bg-primary justify-center pl-8 items-center"
                 title="Get Started"
                 textStyle="text-white text-center text-base font-semibold"
             

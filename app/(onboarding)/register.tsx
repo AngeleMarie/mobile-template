@@ -159,9 +159,9 @@ export default function RegisterScreen() {
           {/* Footer */}
           <View className="flex-row justify-center items-center mt-auto mb-12 px-6">
             <Text className="text-gray-600 text-sm">Already have an account?</Text>
-            <TouchableOpacity onPress={() => router.push('/login')}>
-              <Text className="text-primary hover:underline font-semibold text-sm ml-1">Sign In</Text>
-            </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push('/login')}>
+                     <Text className="text-primary font-semibold text-sm ml-1"> Login</Text>
+                   </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

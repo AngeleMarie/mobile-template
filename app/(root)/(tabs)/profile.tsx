@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -7,39 +7,58 @@ import {
   TouchableOpacity, 
   ScrollView,
   Modal,
+  ActivityIndicator,
 } from 'react-native';
+import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Container } from '@/components/layout/Container';
 import Colors from '@/constants/Colors';
-import { User, History,  LogOut, ChevronRight,  CircleHelp as HelpCircle, Shield, Circle as XCircle, Bookmark } from 'lucide-react-native';
+import { User } from '@/types/index';
+import { User as UserIcon, History, LogOut, ChevronRight, Bookmark, XCircle } from 'lucide-react-native';
 import { Button } from '@/components/Button';
 
 export default function ProfileScreen() {
+  const router = useRouter();
   const [logoutModalVisible, setLogoutModalVisible] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const user = {
-    name: 'Johan Liebert',
-    email: 'johan.liebert@gmail.com',
-    profilePicture: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=800',
-    location: 'Batu, East Java',
-  };
+  // Fetch user from AsyncStorage when component mounts
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const storedUser = await AsyncStorage.getItem('user');
+        if (storedUser) {
+          setUser(JSON.parse(storedUser));
+        } else {
+          // Redirect to login if no user is found
+          router.replace('/login');
+        }
+      } catch (error) {
+        console.error('Error loading user:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadUser();
+  }, []);
 
   const menuItems = [
-
-    
     { 
       id: 'history', 
       title: 'History', 
       icon: <History size={20} color={Colors.primary[500]} />,
       screen: '/tickets',
+      onPress: () => router.push('/tickets'),
     },
-
-        { 
+    { 
       id: 'saved', 
       title: 'Saved', 
       icon: <Bookmark size={20} color={Colors.primary[500]} />,
       screen: '/(root)/(tabs)/bookmarks',
+      onPress: () => router.push('/(root)/(tabs)/bookmarks'),
     },
-     
     { 
       id: 'logout', 
       title: 'Logout', 
@@ -49,11 +68,30 @@ export default function ProfileScreen() {
     },
   ];
 
-  const renderMenuItem = (item: any) => (
+  const handleLogout = async () => {
+    try {
+      // Clear user from AsyncStorage
+      await AsyncStorage.removeItem('user');
+      setLogoutModalVisible(false);
+      // Redirect to login screen
+      router.replace('/login');
+    } catch (error) {
+      console.error('Error during logout:', error);
+    }
+  };
+
+  const renderMenuItem = (item: {
+    id: string;
+    title: string;
+    icon: React.ReactNode;
+    screen?: string;
+    onPress: () => void;
+    textColor?: string;
+  }) => (
     <TouchableOpacity 
       key={item.id} 
       style={styles.menuItem}
-      onPress={item.onPress ? item.onPress : () => {}}
+      onPress={item.onPress}
     >
       <View style={styles.menuItemLeft}>
         <View style={styles.menuItemIcon}>
@@ -72,6 +110,21 @@ export default function ProfileScreen() {
     </TouchableOpacity>
   );
 
+  if (loading) {
+    return (
+      <Container style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary[500]} />
+          <Text style={styles.loadingText}>Loading...</Text>
+        </View>
+      </Container>
+    );
+  }
+
+  if (!user) {
+    return null; // Router will handle redirect to login
+  }
+
   return (
     <Container style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -79,33 +132,31 @@ export default function ProfileScreen() {
           <View style={styles.profileSection}>
             <View style={styles.avatarContainer}>
               <Image
-                source={{ uri: user.profilePicture }}
+                source={{ uri: user.avatarUrl }}
                 style={styles.avatar}
               />
             </View>
-            <Text style={styles.name}>{user.name}</Text>
+            <Text style={styles.name}>{`${user.firstName} ${user.lastName}`}</Text>
             <Text style={styles.email}>{user.email}</Text>
             <View style={styles.locationContainer}>
               <View style={styles.locationIcon}>
-                <User size={16} color={Colors.primary[500]} />
+                <UserIcon size={16} color={Colors.primary[500]} />
               </View>
               <Text style={styles.location}>{user.location}</Text>
             </View>
-            <Button
-              title="Edit Account"
-              variant="outline"
-              size="small"
-              onPress={() => {}}
-              style={styles.editButton}
-            />
+            {/* <Button */}
+              {/* title="Edit Account" */}
+              {/* variant="outline" */}
+              {/* size="small" */}
+              {/* onPress={() => {}} */}
+              {/* style={styles.editButton} */}
+            {/* /> */}
           </View>
         </View>
 
         <View style={styles.menuContainer}>
           {menuItems.map(renderMenuItem)}
         </View>
-
-        
       </ScrollView>
 
       {/* Logout Modal */}
@@ -126,7 +177,7 @@ export default function ProfileScreen() {
             
             <Text style={styles.logoutTitle}>Logout</Text>
             <Text style={styles.logoutMessage}>
-              Are you sure to logout this account
+              Are you sure to logout this account?
             </Text>
             
             <View style={styles.logoutButtons}>
@@ -139,9 +190,7 @@ export default function ProfileScreen() {
               <Button
                 title="Logout"
                 variant="primary"
-                onPress={() => {
-                  setLogoutModalVisible(false);
-                }}
+                onPress={handleLogout}
                 style={{ flex: 1, marginLeft: 8 }}
               />
             </View>
@@ -156,6 +205,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background.primary,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 8,
+    fontFamily: 'Poppins-Regular',
+    fontSize: 16,
+    color: Colors.text.primary,
   },
   header: {
     backgroundColor: Colors.primary[500],
@@ -246,16 +306,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.text.primary,
   },
-  appInfo: {
-    alignItems: 'center',
-    marginTop: 40,
-    marginBottom: 32,
-  },
-  appVersion: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 14,
-    color: Colors.text.tertiary,
-  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -294,3 +344,4 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
 });
+

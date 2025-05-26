@@ -1,22 +1,48 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Image, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView,  ActivityIndicator, } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, Image, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Input } from '@/components/Input';
 import CustomButton from '@/components/CustomButton';
 import { ChevronLeftBlue } from '@/assets/svgs';
+import { Mail, Lock } from 'lucide-react-native';
+import { User } from '@/types/index';
 
-import { Mail, Lock, ArrowLeft } from 'lucide-react-native';
+import axios from 'axios';
 
 export default function LoginScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState({ email: '', password: '' });
+  const [errors, setErrors] = useState({ email: '', password: '', credentials: '' });
+  const [users, setUsers] = useState<User[]>([]); // Fixed: Changed User to User[]
+
+  // Fetch users when the component mounts
+useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        // With axios, the response body is in `response.data`
+        const { data } = await axios.get('http://10.11.73.214:3001/users'); 
+        setUsers(data);
+      } catch (error) {
+        console.error('Error fetching users:', error);
+        setErrors(prev => ({
+          ...prev,
+          credentials: 'Failed to fetch users. Please try again.',
+        }));
+      }
+    };
+
+    fetchUsers();
+  }, []);
+
+  // console.log(users)  
+  
 
   const validateForm = () => {
     let isValid = true;
-    const newErrors = { email: '', password: '' };
+    const newErrors = { email: '', password: '', credentials: '' };
 
     if (!email) {
       newErrors.email = 'Email is required';
@@ -38,10 +64,30 @@ export default function LoginScreen() {
     return isValid;
   };
 
-  const handleLogin = () => {
-    if (validateForm()) {
-      setLoading(true);  
-        router.push('/(root)/(tabs)/home');
+  const handleLogin = async () => {
+    if (!validateForm()) return;
+
+    setLoading(true);
+    try {
+      // Check if user exists with the provided email and password
+      const user = users.find((u) => u.email === email && u.password === password); // Simplified: Removed redundant type annotation
+
+      if (!user) {
+        setErrors((prev) => ({ ...prev, credentials: 'Invalid email or password' }));
+        setLoading(false);
+        return;
+      }
+
+      // Store user in AsyncStorage
+      await AsyncStorage.setItem('user', JSON.stringify(user));
+
+      // Navigate to home or profile screen
+      router.push('/(root)/(tabs)/home');
+    } catch (error) {
+      console.error('Error during login:', error);
+      setErrors((prev) => ({ ...prev, credentials: 'An error occurred. Please try again.' }));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -55,8 +101,6 @@ export default function LoginScreen() {
           contentContainerStyle={{ flexGrow: 1 }}
           keyboardShouldPersistTaps="handled"
         >
-     
-
           {/* Logo */}
           <View className="items-center mt-6 mb-10">
             <Image
@@ -81,7 +125,7 @@ export default function LoginScreen() {
               placeholder="Enter your email"
               keyboardType="email-address"
               errorText={errors.email}
-              icon={<Mail size={20} color="#9CA3AF" />} // Tailwind gray-400
+              icon={<Mail size={20} color="#9CA3AF" />}
             />
 
             <Input
@@ -94,11 +138,15 @@ export default function LoginScreen() {
               icon={<Lock size={20} color="#9CA3AF" />}
             />
 
+            {errors.credentials ? (
+              <Text className="text-red-500 text-sm">{errors.credentials}</Text>
+            ) : null}
+
             <TouchableOpacity className="self-end mb-8" activeOpacity={0.7}>
               <Text className="text-primary font-medium text-sm">Forgot Password?</Text>
             </TouchableOpacity>
 
- <CustomButton
+            <CustomButton
               title={
                 loading ? (
                   <ActivityIndicator size="small" color="#ffffff" />
@@ -106,7 +154,7 @@ export default function LoginScreen() {
                   'Login Now'
                 )
               }
-              containerStyle="w-[80%] text-center m-4 h-[54px]  justify-center bg-primary"
+              containerStyle="w-[80%] text-center m-4 h-[54px] justify-center bg-primary"
               onPress={handleLogin}
               disabled={loading}
             />
@@ -124,3 +172,5 @@ export default function LoginScreen() {
     </SafeAreaView>
   );
 }
+
+

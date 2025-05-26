@@ -50,7 +50,7 @@ export default function BookmarksScreen() {
         style={styles.removeButton}
         onPress={() => removeBookmark(item.id)}
       >
-        <Trash2 size={20} color={Colors.primary[500]} />
+        <Trash2 size={20} color={Colors.error[500]} />
       </TouchableOpacity>
       <View style={styles.parkingInfo}>
         <Text style={styles.parkingName}>{item.name}</Text>

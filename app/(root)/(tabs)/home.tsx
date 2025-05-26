@@ -7,18 +7,29 @@ import {
   TouchableOpacity,
   Image,
   Pressable,
-  // Animated, // Not used in the provided code, can be removed if not needed
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Container } from '@/components/layout/Container'; // Assuming path
-import Colors from '@/constants/Colors'; // Assuming path
-import { Search, Car, Clock, Bookmark, BookmarkCheck, Bell, Locate } from 'lucide-react-native';
-// import { Input } from '@/components/Input'; // Not used, can be removed
+import { Container } from '@/components/layout/Container';
+import Colors from '@/constants/Colors';
+import axios from 'axios';
+import {
+  Search,
+  Car,
+  Clock,
+  Bookmark,
+  BookmarkCheck,
+  Bell,
+  Locate,
+} from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useSearchStore } from '@/store/searchStore'; // Assuming path
-import { useBookmarkStore } from '@/store/bookmarkStore'; // Path to your new store
+import { useBookmarkStore } from '@/store/bookmarkStore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Toast from 'react-native-toast-message';
+import { User } from '@/types/index';
 
-// Assuming ParkingLocation interface is defined in bookmarkStore or globally
+
 interface ParkingLocation {
   id: string;
   name: string;
@@ -27,63 +38,125 @@ interface ParkingLocation {
   price: string;
   available: number;
   image: string;
-  // isFavorite: boolean; // This will now be derived from the bookmark store
 }
 
-const initialParkingLocations: ParkingLocation[] = [
-  {
-    id: '1',
-    name: 'Central City Parking',
-    address: '123 Main St, Downtown',
-    distance: '0.5 km',
-    price: '$2.50/hr',
-    available: 12,
-    image: 'https://images.pexels.com/photos/1004665/pexels-photo-1004665.jpeg?auto=compress&cs=tinysrgb&w=800',
-  },
-  {
-    id: '2',
-    name: 'Westside Mall Parking',
-    address: '456 Market Ave, Westside',
-    distance: '1.2 km',
-    price: '$3.00/hr',
-    available: 8,
-    image: 'https://images.pexels.com/photos/1804035/pexels-photo-1804035.jpeg?auto=compress&cs=tinysrgb&w=800',
-  },
-  {
-    id: '3',
-    name: 'Harbor View Parking',
-    address: '789 Ocean Blvd, Seaside',
-    distance: '2.4 km',
-    price: '$2.00/hr',
-    available: 25,
-    image: 'https://images.pexels.com/photos/1756957/pexels-photo-1756957.jpeg?auto=compress&cs=tinysrgb&w=800',
-  },
-];
+
 
 export default function HomeScreen() {
   const router = useRouter();
-  // const { searchQuery, setSearchQuery } = useSearchStore(); // searchQuery not used here
   const { toggleBookmark, isBookmarked } = useBookmarkStore();
+  const [locations, setLocations] = useState<ParkingLocation[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // You might fetch locations or use a static list
-  const [locations, setLocations] = useState(initialParkingLocations);
+  // Fetch user from AsyncStorage
+  useEffect(() => {
+    const getUserFromStorage = async () => {
+      try {
+        const jsonValue = await AsyncStorage.getItem('user');
+        if (jsonValue) {
+          const parsedUser: User = JSON.parse(jsonValue);
+          setUser(parsedUser);
+        } else {
+          console.warn('No user found in AsyncStorage');
+          // Optionally redirect to login
+          // router.push('/login');
+        }
+      } catch (error) {
+        console.error('Failed to load user from AsyncStorage:', error);
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: 'Failed to load user data.',
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const handleSearchFocus = () => {
-    router.push('/explore');
+    getUserFromStorage();
+  }, []);
+
+  // Fetch parking locations from API
+  const fetchLocations = async () => {
+    try {
+      const response = await axios.get('http://10.11.73.214:3001/parking');
+      const mappedLocations: ParkingLocation[] = response.data.map((item: any) => ({
+        id: item.id,
+        name: item.name,
+        address: item.address,
+        distance: item.distance,
+        price: item.price,
+        available: item.availableSpaces || item.available, // Handle API field variations
+        image: item.image || item.parkingImage || 'https://via.placeholder.com/160', // Fallback image
+      }));
+      setLocations(mappedLocations);
+    } catch (error: any) {
+      console.error('Error fetching parking locations:', {
+        message: error.message,
+        code: error.code,
+        response: error.response?.data,
+      });
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to fetch parking locations. Using local data.',
+      });
+      setLocations([]); // Fallback to static data
+    }
   };
 
-  // The toggleFavorite function now uses the store
+  // Fetch locations on mount
+  useEffect(() => {
+    fetchLocations();
+  }, []);
+
+  // Pull-to-refresh handler
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchLocations();
+    setRefreshing(false);
+    Toast.show({
+      type: 'success',
+      text1: 'Refreshed',
+      text2: 'Parking locations updated successfully.',
+    });
+  };
+
   const handleToggleFavorite = (location: ParkingLocation) => {
     toggleBookmark(location);
+    Toast.show({
+      type: 'success',
+      text1: isBookmarked(location.id) ? 'Bookmark Added' : 'Bookmark Removed',
+      text2: `${location.name} has been ${isBookmarked(location.id) ? 'added from' : 'removed to'} your bookmarks.`,
+    });
   };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={Colors.primary[500]} />
+      </View>
+    );
+  }
 
   return (
     <Container style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[Colors.primary[500]]}
+          />
+        }
+      >
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>Good Morning 🌤️</Text>
-            <Text style={styles.name}>Johan Liebert</Text>
+            <Text style={styles.name}>{user?.firstName || 'Guest'}</Text>
           </View>
           <View style={styles.rightIcons}>
             <TouchableOpacity
@@ -97,15 +170,14 @@ export default function HomeScreen() {
               style={styles.avatarContainer}
             >
               <Image
-                source={{ uri: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=800' }}
+                source={{
+                  uri: user?.avatarUrl || 'https://via.placeholder.com/48',
+                }}
                 style={styles.avatar}
-                onError={(e) => console.log('Failed to load avatar image', e.nativeEvent.error)}
               />
             </TouchableOpacity>
           </View>
         </View>
-
-       
 
         <View style={styles.bannerContainer}>
           <LinearGradient
@@ -120,13 +192,14 @@ export default function HomeScreen() {
             </View>
           </LinearGradient>
         </View>
-        
-        
+
         <Pressable onPress={() => router.push('/explore')} style={styles.locationBanner}>
           <Locate size={20} color={Colors.primary[700]} />
-          <Text style={styles.locationText}>Find parking near your current location</Text>
+          <Text style={styles.locationText}>
+            Find parking near your current location
+          </Text>
         </Pressable>
-        
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.actionsContainer}>
@@ -139,18 +212,18 @@ export default function HomeScreen() {
               </View>
               <Text style={styles.actionText}>Find Parking</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.actionButton}
-              onPress={() => router.push('/tickets')} // Assuming you have a bookings route
+              onPress={() => router.push('/tickets')}
             >
               <View style={[styles.actionIcon, { backgroundColor: Colors.secondary[500] }]}>
                 <Clock size={24} color="#FFFFFF" />
               </View>
               <Text style={styles.actionText}>Bookings</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.actionButton}
-              onPress={() => router.push('/bookmarks')} // Navigate to bookmarks screen
+              onPress={() => router.push('/bookmarks')}
             >
               <View style={[styles.actionIcon, { backgroundColor: Colors.accent[500] }]}>
                 <BookmarkCheck size={24} color="#FFFFFF" />
@@ -162,23 +235,26 @@ export default function HomeScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Available Parking</Text>
-          {locations.map(location => (
+          {locations.map((location) => (
             <Pressable
               key={location.id}
               style={styles.parkingCard}
-              // onPress={() => router.push(`/parking-details/${location.id}`)} // Example route
+              // onPress={() => router.push(`/parking/${location.id}`)}
             >
-              <Image 
-                source={{ uri: location.image }} 
-                style={styles.parkingImage} 
-                onError={(e) => console.log(`Failed to load image for ${location.name}`, e.nativeEvent.error)}
+              <Image
+                source={{ uri: location.image }}
+                style={styles.parkingImage}
               />
               <TouchableOpacity
                 style={styles.favoriteButton}
                 onPress={() => handleToggleFavorite(location)}
               >
                 {isBookmarked(location.id) ? (
-                  <BookmarkCheck size={20} color={Colors.primary[500]} fill={Colors.primary[100]} />
+                  <BookmarkCheck
+                    size={20}
+                    color={Colors.primary[500]}
+                    fill={Colors.primary[100]}
+                  />
                 ) : (
                   <Bookmark size={20} color={Colors.neutral[500]} />
                 )}
@@ -210,22 +286,28 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background.primary,
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.background.primary,
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 24,
-    paddingTop: 16, // Adjust as per your safe area needs
+    paddingTop: 16,
     marginBottom: 24,
   },
   greeting: {
     fontSize: 14,
-    fontFamily: 'Poppins-Regular', // Example: ensure fonts are loaded
+    fontFamily: 'Poppins-Regular',
     color: Colors.text.secondary,
   },
   name: {
     fontSize: 22,
-    fontFamily: 'Poppins-Bold', // Example
+    fontFamily: 'Poppins-Bold',
     color: Colors.text.primary,
   },
   rightIcons: {
@@ -248,26 +330,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  searchContainer: {
-    paddingHorizontal: 24,
-    marginBottom: 24,
-  },
-  searchButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.background.secondary,
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: Colors.border.light,
-  },
-  searchPlaceholder: {
-    marginLeft: 12,
-    fontSize: 16,
-    fontFamily: 'Poppins-Regular', // Example
-    color: Colors.text.tertiary,
-  },
   locationBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -281,7 +343,7 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     fontSize: 14,
     color: Colors.primary[700],
-    fontFamily: 'Poppins-Medium', // Example
+    fontFamily: 'Poppins-Medium',
   },
   section: {
     marginBottom: 24,
@@ -289,21 +351,21 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontFamily: 'Poppins-SemiBold', // Example
+    fontFamily: 'Poppins-SemiBold',
     color: Colors.text.primary,
     marginBottom: 16,
   },
   actionsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around', // Better distribution
+    justifyContent: 'space-around',
   },
   actionButton: {
     alignItems: 'center',
-    width: '30%', // Adjust if needed
+    width: '30%',
   },
   actionIcon: {
-    width: 60, // Slightly larger
-    height: 60, // Slightly larger
+    width: 60,
+    height: 60,
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
@@ -316,7 +378,7 @@ const styles = StyleSheet.create({
   },
   actionText: {
     fontSize: 14,
-    fontFamily: 'Poppins-Medium', // Example
+    fontFamily: 'Poppins-Medium',
     color: Colors.text.secondary,
     textAlign: 'center',
   },
@@ -327,22 +389,21 @@ const styles = StyleSheet.create({
   banner: {
     borderRadius: 16,
     overflow: 'hidden',
-    // height: 140, // Height can be dynamic or fixed
-    paddingVertical: 20, // Added padding for content
+    paddingVertical: 20,
   },
   bannerContent: {
-    paddingHorizontal: 20, // Added padding for content
-    alignItems: 'flex-start', // Align text to start
+    paddingHorizontal: 20,
+    alignItems: 'flex-start',
   },
   bannerTitle: {
     fontSize: 20,
-    fontFamily: 'Poppins-Bold', // Example
+    fontFamily: 'Poppins-Bold',
     color: Colors.neutral[50],
     marginBottom: 4,
   },
   bannerText: {
     fontSize: 14,
-    fontFamily: 'Poppins-Regular', // Example
+    fontFamily: 'Poppins-Regular',
     color: Colors.neutral[100],
   },
   parkingCard: {
@@ -360,30 +421,30 @@ const styles = StyleSheet.create({
   },
   parkingImage: {
     width: '100%',
-    height: 160, // Adjusted height
+    height: 160,
   },
   favoriteButton: {
     position: 'absolute',
     top: 12,
     right: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)', // Semi-transparent background
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
     borderRadius: 20,
-    padding: 8, // Increased padding
+    padding: 8,
   },
   parkingInfo: {
     padding: 16,
   },
   parkingName: {
-    fontSize: 17, // Slightly larger
-    fontFamily: 'Poppins-SemiBold', // Example
+    fontSize: 17,
+    fontFamily: 'Poppins-SemiBold',
     color: Colors.text.primary,
     marginBottom: 4,
   },
   parkingAddress: {
     fontSize: 14,
-    fontFamily: 'Poppins-Regular', // Example
+    fontFamily: 'Poppins-Regular',
     color: Colors.text.secondary,
-    marginBottom: 10, // Adjusted spacing
+    marginBottom: 10,
   },
   parkingDetails: {
     flexDirection: 'row',
@@ -392,31 +453,31 @@ const styles = StyleSheet.create({
   },
   parkingDistance: {
     fontSize: 14,
-    fontFamily: 'Poppins-Medium', // Example
+    fontFamily: 'Poppins-Medium',
     color: Colors.text.tertiary,
   },
   dot: {
-    width: 5, // Slightly larger
-    height: 5, // Slightly larger
+    width: 5,
+    height: 5,
     borderRadius: 2.5,
     backgroundColor: Colors.text.tertiary,
-    marginHorizontal: 10, // Increased spacing
+    marginHorizontal: 10,
   },
   parkingPrice: {
     fontSize: 14,
-    fontFamily: 'Poppins-Medium', // Example
+    fontFamily: 'Poppins-Medium',
     color: Colors.text.tertiary,
   },
   availableContainer: {
     backgroundColor: Colors.success[50],
-    paddingVertical: 6, // Adjusted padding
+    paddingVertical: 6,
     paddingHorizontal: 12,
-    borderRadius: 8, // Slightly less rounded
+    borderRadius: 8,
     alignSelf: 'flex-start',
   },
   availableText: {
     fontSize: 12,
-    fontFamily: 'Poppins-Medium', // Example
+    fontFamily: 'Poppins-Medium',
     color: Colors.success[700],
   },
 });

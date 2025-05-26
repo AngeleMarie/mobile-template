@@ -32,16 +32,6 @@ export type Toast = {
   duration?: number; // in milliseconds, optional
 };
 
-export interface User {
-  id: string;
-  firstName: string;
-  lastName:string;
-  email: string;
-  avatarUrl?: string;
-  location?: string;
-  createdAt: string;
-  updatedAt?: string;
-}
 
 
 export type ToastVariant = 'success' | 'error' | 'info' | 'warning';
@@ -58,6 +48,43 @@ export interface ToastType {
 export interface OAuthButtonProps extends ButtonProps {
     containerStyle: string;
     iconLeft?: any;
+}
+export interface User {
+  id: number | string;
+  email: string;
+  password?: string;  // optional, maybe don't keep password in frontend state
+  firstName: string;
+  lastName: string;
+  role?: string;
+  avatarUrl: string;
+  location?: string;  // Your sample user JSON doesn't have location, so optional
+  createdAt?: string;
+  updatedAt?: string;
+
+}
+
+
+
+
+
+export interface Booking {
+  id: string;
+  name: string;
+  location: string;
+  Date: string;
+  status: string;
+  Price: number;
+  Duration: string;
+  EntryTime: number;
+  ExitTime: number;
+}
+
+export interface Parking {
+  id: string;
+  name: string;
+  Price: number;
+  parkingImage: string;
+  availabeSpaces: number;
 }
 
 

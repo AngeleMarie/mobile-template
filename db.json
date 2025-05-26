@@ -1,0 +1,148 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "email": "angele@example.com",
+      "password": "123456",
+      "firstName": "Angele",
+      "lastName": "Marie",
+      "location": "Kigali, Rwanda",
+      "role": "user",
+      "avatarUrl": "https://img.freepik.com/free-psd/3d-illustration-human-avatar-profile_23-2150671116.jpg"
+    }
+  ],
+"bookings": [
+    {
+      "id": "1",
+      "parkingName": "Central City Parking",
+      "address": "Jaren Island, Downtown",
+      "date": "2026-04-14",
+      "startTime": "2026-04-14T20:42:06.110Z",
+      "endTime": null,
+      "price": "$37.00",
+      "status": "upcoming",
+      "duration": "2h"
+    },
+    {
+      "id": "0e57",
+      "parkingName": "Downtown Garage",
+      "address": "123 Main St, Downtown",
+      "date": "2025-05-26",
+      "startTime": "2025-05-26T21:42:03.871Z",
+      "endTime": null,
+      "price": "$5.00",
+      "status": "active",
+      "duration": "1h 30m"
+    },
+    {
+      "id": "743b",
+      "parkingName": "Westside Lot",
+      "address": "456 Market Ave, Westside",
+      "date": "2025-05-26",
+      "startTime": "2025-05-26T21:42:23.542Z",
+      "endTime": "2025-05-26T23:42:23.542Z",
+      "price": "$10.00",
+      "status": "completed"
+    },
+    {
+      "id": "e648",
+      "parkingName": "Downtown Garage",
+      "address": "123 Main St, Downtown",
+      "date": "2025-05-26",
+      "startTime": "2025-05-26T21:46:57.310Z",
+      "endTime": null,
+      "price": "$7.50",
+      "status": "active",
+      "duration": "45m"
+    }
+  ],
+  "parking": [
+    {
+      "id": "1",
+      "name": "Central City Parking",
+      "address": "123 Main St, Downtown",
+      "distance": "0.5 km",
+      "price": "$2.50/hr",
+      "availableSpaces": 12,
+      "image": "https://images.pexels.com/photos/1004665/pexels-photo-1004665.jpeg?auto=compress&cs=tinysrgb&w=800",
+      "rating": 4.5,
+      "features": [
+        "Covered",
+        "Security",
+        "EV Charging"
+      ],
+      "open24Hours": true,
+      "keywords": [
+        "downtown",
+        "central",
+        "city",
+        "main street"
+      ]
+    },
+    {
+      "id": "2",
+      "name": "Westside Mall Parking",
+      "address": "456 Market Ave, Westside",
+      "distance": "1.2 km",
+      "price": "$3.00/hr",
+      "availableSpaces": 8,
+      "image": "https://images.pexels.com/photos/1804035/pexels-photo-1804035.jpeg?auto=compress&cs=tinysrgb&w=800",
+      "rating": 4.2,
+      "features": [
+        "Covered",
+        "Security"
+      ],
+      "open24Hours": false,
+      "keywords": [
+        "mall",
+        "westside",
+        "shopping",
+        "market"
+      ]
+    },
+    {
+      "id": "3",
+      "name": "Harbor View Parking",
+      "address": "789 Ocean Blvd, Seaside",
+      "distance": "2.4 km",
+      "price": "$2.00/hr",
+      "availableSpaces": 25,
+      "image": "https://images.pexels.com/photos/1756957/pexels-photo-1756957.jpeg?auto=compress&cs=tinysrgb&w=800",
+      "rating": 4.8,
+      "features": [
+        "Covered",
+        "Security",
+        "EV Charging",
+        "Valet"
+      ],
+      "open24Hours": true,
+      "keywords": [
+        "harbor",
+        "ocean",
+        "seaside",
+        "beach",
+        "view"
+      ]
+    },
+    {
+      "id": "4",
+      "name": "Downtown Plaza Parking",
+      "address": "321 Center St, Downtown",
+      "distance": "0.8 km",
+      "price": "$2.75/hr",
+      "availableSpaces": 5,
+      "image": "https://images.pexels.com/photos/2078146/pexels-photo-2078146.jpeg?auto=compress&cs=tinysrgb&w=800",
+      "rating": 4,
+      "features": [
+        "Security"
+      ],
+      "open24Hours": false,
+      "keywords": [
+        "downtown",
+        "plaza",
+        "center",
+        "business"
+      ]
+    }
+  ]
+}
